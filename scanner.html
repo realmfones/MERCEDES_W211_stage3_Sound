@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Scanner</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+    min-height: 100vh;
+    background: #080b0f;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    width: 900px;
+    max-width: 94%;
+    background: #11161c;
+    border: 1px solid #2b333d;
+    border-radius: 16px;
+    padding: 35px;
+    box-shadow: 0 0 60px rgba(255, 0, 0, 0.12);
+}
+
+.top {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 30px;
+}
+
+.logo {
+    width: 60px;
+    height: 68px;
+    background: #e53935;
+    clip-path: polygon(
+        50% 0%,
+        92% 15%,
+        86% 70%,
+        50% 100%,
+        14% 70%,
+        8% 15%
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    font-weight: bold;
+}
+
+.title h1 {
+    font-size: 28px;
+}
+
+.title p {
+    color: #9299a3;
+    margin-top: 6px;
+}
+
+.scan {
+    background: #0b0f13;
+    border: 1px solid #252d36;
+    border-radius: 12px;
+    padding: 25px;
+}
+
+.scan-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.scan-header span:last-child {
+    color: #aaa;
+}
+
+.progress {
+    width: 100%;
+    height: 18px;
+    background: #242a31;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background: #e53935;
+    transition: width 0.1s linear;
+}
+
+.info {
+    margin-top: 12px;
+    color: #8e969f;
+    font-size: 14px;
+}
+
+.results {
+    display: none;
+    margin-top: 25px;
+}
+
+.results-title {
+    color: #ff4d4d;
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.threat {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: #181e25;
+    border: 1px solid #303943;
+    border-left: 5px solid #e53935;
+    border-radius: 7px;
+    padding: 14px;
+    margin-bottom: 9px;
+}
+
+.icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: #e53935;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.threat-name {
+    color: #ff6262;
+    font-weight: bold;
+}
+
+.threat-file {
+    color: #a9b0b8;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.remove {
+    display: none;
+    width: 100%;
+    margin-top: 20px;
+    padding: 16px;
+    border: none;
+    border-radius: 8px;
+    background: #555;
+    color: #aaa;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: not-allowed;
+    text-align: center;
+    text-decoration: none;
+    pointer-events: none;
+}
+
+.remove.active {
+    background: #e53935;
+    color: white;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.remove.active:hover {
+    background: #ff4b4b;
+}
+
+.warning {
+    display: none;
+    text-align: center;
+    margin-top: 20px;
+    color: #ff6464;
+    font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top">
+        <div class="logo">!</div>
+        <div class="title">
+            <h1>Security Scanner</h1>
+            <p>System Diagnostic &amp; Threat Analysis</p>
+        </div>
+    </div>
+
+    <div class="scan">
+        <div class="scan-header">
+            <span id="statusText">Scanning system files...</span>
+            <span id="percentText">0%</span>
+        </div>
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="info" id="fileInfo">Initializing scan engine...</div>
+    </div>
+
+    <div class="results" id="resultsContainer">
+        <div class="results-title">9 Threats Detected</div>
+        <div id="threatList"></div>
+    </div>
+
+    <a href="#" class="remove" id="removeBtn">Remove 9 Threats (Wait 5s)</a>
+
+    <div class="warning" id="warningText">
+        Action required: Click above to resolve detected items.
+    </div>
+</div>
+
+<script>
+    const progressBar = document.getElementById('progressBar');
+    const percentText = document.getElementById('percentText');
+    const statusText = document.getElementById('statusText');
+    const fileInfo = document.getElementById('fileInfo');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const threatList = document.getElementById('threatList');
+    const removeBtn = document.getElementById('removeBtn');
+    const warningText = document.getElementById('warningText');
+
+    const samplePaths = [
+        "C:\\Windows\\System32\\drivers\\etc\\hosts",
+        "C:\\Users\\Default\\AppData\\Local\\Temp\\cache_01.tmp",
+        "C:\\Program Files\\Common Files\\Services\\net_sync.dll",
+        "C:\\Windows\\System32\\Tasks\\UpdateCheck",
+        "C:\\Users\\Public\\Documents\\config.dat"
+    ];
+
+    const threats = [
+        { name: "Adware.Generic.Win32", file: "C:\\Users\\AppData\\Local\\Temp\\ad_helper.exe" },
+        { name: "PUA.BrowserModifier.Ext", file: "C:\\Program Files\\BrowserExt\\manifest.json" },
+        { name: "Trojan.Downloader.Agent", file: "C:\\Windows\\Temp\\sys_patch_88.dll" },
+        { name: "Spyware.TrackingCookie.A", file: "C:\\Users\\AppData\\Roaming\\NetCache\\tracker.db" },
+        { name: "Riskware.RemoteAccess.Tool", file: "C:\\ProgramData\\Services\\rem_assist.exe" },
+        { name: "Malware.Heuristic.Suspicious", file: "C:\\Windows\\System32\\Tasks\\ScheduledSync" },
+        { name: "Adware.PopUp.Injector", file: "C:\\Users\\AppData\\Local\\Programs\\overlay.dll" },
+        { name: "PUA.RegistryHijack.Key", file: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" },
+        { name: "Trojan.Script.Obfuscated", file: "C:\\Users\\Downloads\\invoice_scan.js" }
+    ];
+
+    let progress = 0;
+    let audioStarted = false;
+
+    // Louder and higher-pitched Windows pling chime sound
+    function playWindowsPling(audioCtx) {
+        try {
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            // Increased higher pitch frequencies (sharper bell tone)
+            osc.frequency.setValueAtTime(1400, now);
+            osc.frequency.exponentialRampToValueAtTime(700, now + 0.12);
+
+            // Higher volume/gain (louder)
+            gain.gain.setValueAtTime(0.35, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.12);
+        } catch (e) {}
+    }
+
+    function startPlingSpam() {
+        if (audioStarted) return;
+        audioStarted = true;
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            setInterval(() => {
+                playWindowsPling(audioCtx);
+            }, 60);
+        } catch (e) {}
+    }
+
+    document.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
+        startPlingSpam();
+    }, { once: true });
+
+    window.addEventListener('load', () => {
+        startPlingSpam();
+    });
+
+    const scanInterval = setInterval(() => {
+        progress += 2;
+        if (progress > 100) progress = 100;
+
+        progressBar.style.width = progress + '%';
+        percentText.textContent = progress + '%';
+
+        const randomPath = samplePaths[Math.floor(Math.random() * samplePaths.length)];
+        fileInfo.textContent = "Checking: " + randomPath;
+
+        if (progress >= 100) {
+            clearInterval(scanInterval);
+            statusText.textContent = "Scan Complete";
+            statusText.style.color = "#ff4d4d";
+            fileInfo.textContent = "9 suspicious items found during scan.";
+            displayResults();
+        }
+    }, 60);
+
+    function displayResults() {
+        resultsContainer.style.display = 'block';
+
+        threats.forEach(threat => {
+            const item = document.createElement('div');
+            item.className = 'threat';
+            item.innerHTML = `
+                <div class="icon">!</div>
+                <div>
+                    <div class="threat-name">${threat.name}</div>
+                    <div class="threat-file">${threat.file}</div>
+                </div>
+            `;
+            threatList.appendChild(item);
+        });
+
+        removeBtn.style.display = 'block';
+        warningText.style.display = 'block';
+
+        // 5-second countdown timer for the remove button
+        let countdown = 5;
+        const timerInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                removeBtn.textContent = `Remove 9 Threats (Wait ${countdown}s)`;
+            } else {
+                clearInterval(timerInterval);
+                removeBtn.textContent = "Remove 9 Threats";
+                removeBtn.classList.add('active');
+                removeBtn.setAttribute('href', "https://borgenproject.org/scam-call-centers-in-india/");
+            }
+        }, 1000);
+    }
+</script>
+
+</body>
+</html>
